@@ -1,22 +1,31 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Printer, Upload, User, Briefcase, Type, MapPin, DollarSign, PenTool, Mail, Phone, Palette, Calculator, Calendar, Hash, Coins, Download, FileText, Image, Maximize, Scissors } from 'lucide-react';
+import { Printer, Upload, User, Briefcase, Type, MapPin, DollarSign, PenTool, Mail, Phone, Palette, Calculator, Calendar, Hash, Coins, Download, FileText, Image, Maximize, Scissors, Loader2, QrCode } from 'lucide-react';
+
+// Raha mampiasa Vite ianao, tsara raha manao ireto import ireto:
+// import html2canvas from 'html2canvas';
+// import { jsPDF } from 'jspdf';
 
 const App = () => {
-  // Ampidirina ny script ilaina rehetra (html2canvas ho an'ny sary, jsPDF ho an'ny PDF)
+  const [isExporting, setIsExporting] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("");
+
+  // Fampidirana script ho an'ny tontolo Canvas/Web
   useEffect(() => {
     const scripts = [
       "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
     ];
     scripts.forEach(src => {
-      const script = document.createElement('script');
-      script.src = src;
-      script.async = true;
-      document.body.appendChild(script);
+      if (!document.querySelector(`script[src="${src}"]`)) {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        document.body.appendChild(script);
+      }
     });
   }, []);
 
-  // State for general school info
+  // --- STATE REHETRA (TSY MISY NIOVA) ---
   const [schoolInfo, setSchoolInfo] = useState({
     name: "ECOLE PRIMAIRE ET MATERNELLE BILINGUE",
     subName: "LES BASSONS",
@@ -27,10 +36,7 @@ const App = () => {
     phones: "699 83 90 93 / 699 95 61 89"
   });
 
-  // State for theme color
   const [themeColor, setThemeColor] = useState("#1e1b4b");
-
-  // State for currency selection
   const [currency, setCurrency] = useState("FCFA");
   const currencies = [
     { label: "FCFA", value: "FCFA" },
@@ -42,7 +48,6 @@ const App = () => {
     { label: "Livre Sterling (£)", value: "£" }
   ];
 
-  // State for employee info
   const [employee, setEmployee] = useState({
     name: "BIYAGA BISSISSONG Ezéchias",
     role: "enseignant",
@@ -63,7 +68,6 @@ const App = () => {
     ]
   });
 
-  // States for automatic date calculation
   const [calcStart, setCalcStart] = useState("");
   const [calcEnd, setCalcEnd] = useState("");
 
@@ -83,7 +87,6 @@ const App = () => {
     }
   };
 
-  // State for payroll data
   const [payroll, setPayroll] = useState({
     month: "AVRIL",
     year: "2026",
@@ -95,13 +98,11 @@ const App = () => {
     socialSecurity: 5400
   });
 
-  // State for issuance details
   const [issueDetails, setIssueDetails] = useState({
     location: "Douala",
     date: "18/04/2026"
   });
 
-  // State for assets & signature controls
   const [logo, setLogo] = useState(null);
   const [signature, setSignature] = useState(null);
   const [sigScale, setSigScale] = useState(1);
@@ -114,7 +115,6 @@ const App = () => {
     return (Number(payroll.baseSalary) + Number(payroll.indemnities)) - Number(payroll.socialSecurity);
   }, [payroll]);
 
-  // CSS Filter for signature color
   const getSigFilter = () => {
     switch(sigColorType) {
       case 'blue': return 'sepia(100%) hue-rotate(190deg) saturate(500%) contrast(1.2)';
@@ -133,66 +133,41 @@ const App = () => {
     }
   };
 
-  // FANONTANA PDF (RECTIFIED)
+  // --- FANONTANA PDF (TOKANA SY MATANJAKA) ---
   const exportToPDF = async () => {
     const element = document.getElementById('print-area');
-    if (!element) return;
+    const h2c = window.html2canvas;
+    const jsp = window.jspdf ? window.jspdf.jsPDF : null;
 
-    // Jereo raha tafiditra ny script
-    if (!window.html2canvas || !window.jspdf) {
-      // Raha mbola tsy tafiditra ny script dia ampiasao ny window.print() mahazatra
+    if (!element || !h2c || !jsp) {
       window.print();
       return;
     }
 
-    try {
-      const canvas = await window.html2canvas(element, {
-        scale: 2, // Avo lenta
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Attestation_${employee.name.replace(/\s+/g, '_')}.pdf`);
-    } catch (error) {
-      console.error("PDF Error:", error);
-      window.print(); // Fallback raha misy olana
-    }
-  };
-
-  // Fitaovana fanondranana ho sary (PNG/JPEG)
-  const exportToImage = async (format) => {
-    const element = document.getElementById('print-area');
-    if (!element || !window.html2canvas) {
-      alert("Mbola mikarakara ny fitaovana sary ny milina, andraso kely azafady...");
-      return;
-    }
+    setIsExporting(true);
+    setStatusMsg("Eo am-pamoronana ny PDF...");
 
     try {
-      const canvas = await window.html2canvas(element, {
+      const canvas = await h2c(element, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false
       });
       
-      const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-      const fileExt = format === 'png' ? 'png' : 'jpg';
-      const dataUrl = canvas.toDataURL(mimeType, 1.0);
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsp('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      const link = document.createElement('a');
-      link.download = `Document_${employee.name.replace(/\s+/g, '_')}.${fileExt}`;
-      link.href = dataUrl;
-      link.click();
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Document_${employee.name.replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
-      console.error("Sary Error:", error);
+      console.error("PDF Error:", error);
+      window.print();
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -218,6 +193,16 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
+      {/* Loading Overlay */}
+      {isExporting && (
+        <div className="fixed inset-0 bg-black/75 z-[9999] flex flex-col items-center justify-center text-white backdrop-blur-md">
+          <div className="p-8 bg-white/10 rounded-2xl border border-white/20 flex flex-col items-center">
+            <Loader2 className="w-16 h-16 animate-spin mb-6 text-blue-500" />
+            <p className="text-xl font-black font-sans uppercase tracking-[0.25em] animate-pulse">{statusMsg}</p>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar Editor */}
       <div className="w-full md:w-1/3 bg-white p-6 shadow-2xl overflow-y-auto max-h-screen print:hidden border-r border-slate-200">
         <h2 className="text-2xl font-bold mb-6 text-indigo-700 flex items-center gap-2">
@@ -289,7 +274,7 @@ const App = () => {
                <p className="text-[10px] font-bold text-blue-700 uppercase mb-1 italic">Kajio ho azy ny isan'andro:</p>
                <input type="date" className="w-full p-1 text-xs border rounded mb-1" value={calcStart} onChange={(e) => setCalcStart(e.target.value)} />
                <input type="date" className="w-full p-1 text-xs border rounded mb-2" value={calcEnd} onChange={(e) => setCalcEnd(e.target.value)} />
-               <button onClick={autoCalculateDays} className="w-full bg-blue-500 text-white text-[10px] py-1 rounded font-bold uppercase hover:bg-blue-600">Kajio</button>
+               <button onClick={autoCalculateDays} className="w-full bg-blue-600 text-white text-[10px] py-1 rounded font-bold uppercase hover:bg-blue-700">Kajio</button>
             </div>
           </div>
         </section>
@@ -379,7 +364,6 @@ const App = () => {
                 <input type="color" value={stampColor} onChange={(e) => setStampColor(e.target.value)} className="w-8 h-8 border-none p-0 cursor-pointer" />
             </div>
             
-            {/* Signature Customization */}
             <div className="p-3 bg-white rounded border border-red-100 space-y-3 shadow-sm">
               <label className="text-[10px] font-bold text-slate-800 uppercase block flex items-center gap-1"><Maximize size={12}/> Fanovana Sonia:</label>
               
@@ -424,28 +408,15 @@ const App = () => {
           </div>
         </section>
 
-        {/* SAFIDY TELO HO AN'NY EXPORT */}
-        <div className="space-y-3 mb-10">
+        {/* PDF ONLY EXPORT OPTIONS */}
+        <div className="mb-10">
           <button 
             onClick={exportToPDF} 
-            className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 shadow-xl transition active:scale-95"
+            className="w-full bg-indigo-600 text-white py-5 rounded-xl font-black flex items-center justify-center gap-3 hover:bg-indigo-700 shadow-xl transition active:scale-95 text-lg uppercase tracking-wider"
           >
-            <FileText size={20} /> Hanonta PDF (Direct)
+            <FileText size={24} /> Hanonta PDF (A4)
           </button>
-          <div className="grid grid-cols-2 gap-2">
-            <button 
-              onClick={() => exportToImage('png')}
-              className="bg-slate-700 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 text-xs hover:bg-slate-800 transition"
-            >
-              <Download size={14} /> PNG
-            </button>
-            <button 
-              onClick={() => exportToImage('jpg')}
-              className="bg-slate-700 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 text-xs hover:bg-slate-800 transition"
-            >
-              <Download size={14} /> JPEG
-            </button>
-          </div>
+          <p className="text-[9px] text-gray-400 text-center mt-3 italic">Hatao mifanaraka amin'ny taratasy A4 ny fanontana ny antontan-taratasy.</p>
         </div>
       </div>
 
@@ -453,8 +424,20 @@ const App = () => {
       <div className="flex-1 p-8 bg-slate-200 overflow-y-auto flex justify-center print:p-0 print:bg-white">
         <div id="print-area" className="bg-white w-[210mm] min-h-[297mm] p-12 shadow-2xl print:shadow-none print:w-full relative font-sans text-gray-900 overflow-hidden print:border-none border border-slate-300">
           
+          {/* DECORATION: Subtle Watermark */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.03] rotate-[-45deg] z-0 select-none overflow-hidden">
+             <div className="text-[120px] font-black uppercase text-center leading-tight">
+                {schoolInfo.subName}<br/>
+                {schoolInfo.subName}<br/>
+                {schoolInfo.subName}
+             </div>
+          </div>
+
+          {/* DECORATION: Elegant Border */}
+          <div className="absolute inset-4 border border-gray-100 pointer-events-none z-10"></div>
+
           {/* Header */}
-          <div className="flex justify-between items-start mb-6">
+          <div className="flex justify-between items-start mb-6 relative z-20">
             <div className="w-28 h-28 flex-shrink-0 flex items-center justify-center border border-dashed border-gray-100 overflow-hidden">
               {logo ? <img src={logo} alt="Logo" className="max-w-full max-h-full object-contain" /> : <div className="text-[10px] text-gray-300 uppercase font-mono">LOGO ETO</div>}
             </div>
@@ -473,16 +456,16 @@ const App = () => {
             <div className="w-28"></div>
           </div>
 
-          <div className="h-1.5 mb-8" style={{ backgroundColor: themeColor }}></div>
+          <div className="h-1.5 mb-8 relative z-20" style={{ backgroundColor: themeColor }}></div>
 
           {/* Attestation Section */}
-          <div className="text-center mb-10">
+          <div className="text-center mb-10 relative z-20">
             <h3 className="text-2xl font-black underline decoration-2 underline-offset-8 uppercase tracking-widest" style={{ color: themeColor }}>
               ATTESTATION DE TRAVAIL
             </h3>
           </div>
 
-          <div className="text-justify leading-loose text-[15.5px] space-y-6 px-4 mb-12">
+          <div className="text-justify leading-loose text-[15.5px] space-y-6 px-4 mb-12 relative z-20">
             <p className="indent-16">
               Mme la directrice de l'école primaire et maternelle bilingue <span className="font-bold uppercase">{schoolInfo.subName}</span>, soussignée ; 
               atteste que M. <span className="font-bold underline uppercase">{employee.name}</span>, <span className="italic">{employee.role}</span> a travaillé dans ledit établissement à titre 
@@ -499,8 +482,8 @@ const App = () => {
             </p>
           </div>
 
-          {/* SIGNATURE & STAMP POSITIONED SIDE BY SIDE */}
-          <div className="mt-16 mr-10 flex flex-col items-end">
+          {/* SIGNATURE & STAMP */}
+          <div className="mt-16 mr-10 flex flex-col items-end relative z-20">
             <div className="text-center min-w-[450px] relative">
               <p className="font-bold mb-1 uppercase tracking-tight">Fait à {issueDetails.location}, le {issueDetails.date}</p>
               <p className="italic text-sm mb-6 uppercase tracking-wider">La Directrice</p>
@@ -535,14 +518,14 @@ const App = () => {
           </div>
 
           {/* Cut Line */}
-          <div className="mt-14 mb-8 relative border-t-2 border-dashed border-gray-300">
+          <div className="mt-14 mb-8 relative border-t-2 border-dashed border-gray-300 relative z-20">
              <span className="absolute -top-3.5 left-0 text-gray-400 text-sm flex items-center gap-2 tracking-tighter">
                <Scissors size={12}/>---------------------------------------------------------------------------------------------------------------------------------------------------------
              </span>
           </div>
 
           {/* BULLETIN DE PAYE SECTION */}
-          <div className="border-2 border-black p-6 bg-slate-50 rounded shadow-inner mb-4">
+          <div className="border-2 border-black p-6 bg-slate-50 rounded shadow-inner mb-4 relative z-20">
             <div className="flex justify-between items-center mb-6">
                <div className="text-[10px]">
                   <h4 className="font-bold text-gray-600 uppercase tracking-tighter">{schoolInfo.name}</h4>
@@ -603,9 +586,9 @@ const App = () => {
                   <tr className="h-9 text-red-700 bg-red-50/30 font-bold">
                     <td className="border border-black px-3 italic text-[10px]">Cotisations Sociales (Retenues)</td>
                     <td className="border border-black px-2 text-right">-</td>
-                    <td className="border border-black px-2 text-right">{Number(payroll.socialSecurity).toLocaleString()}</td>
+                    <td className="border border-black px-2 text-right">{Number(payroll.socialSociality || payroll.socialSecurity).toLocaleString()}</td>
                   </tr>
-                  <tr className="h-14 font-black bg-gray-100 text-base">
+                  <tr className="h-14 font-black bg-gray-100 text-sm">
                     <td className="border-2 border-black px-4 text-right uppercase tracking-tighter">MONTANT NET À PAYER</td>
                     <td colSpan="2" className="border-2 border-black px-4 text-center text-2xl bg-yellow-50 tabular-nums">
                        {netToPay.toLocaleString()} <span className="text-sm font-bold">{currency}</span>
@@ -618,6 +601,12 @@ const App = () => {
             <div className="mt-8 flex justify-between items-center px-4">
               <div className="w-24 h-24 flex items-center justify-center overflow-hidden">
                 {logo ? <img src={logo} alt="Logo" className="max-w-full max-h-full object-contain" /> : <div className="text-[8px] text-gray-400 font-mono">LOGO</div>}
+              </div>
+
+              {/* Decoration: Secure QR */}
+              <div className="opacity-10 grayscale hover:opacity-100 transition-opacity cursor-help" title="Fanamarinana nomerika">
+                 <QrCode size={40} className="text-gray-900" />
+                 <p className="text-[6px] text-center uppercase font-bold text-gray-400">Secure Verify</p>
               </div>
 
               <div className="text-center w-48 relative">
@@ -663,6 +652,16 @@ const App = () => {
           .print\\:hidden { display: none !important; }
           @page { margin: 0; size: auto; }
           -webkit-print-color-adjust: exact;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 16px;
+          width: 16px;
+          border-radius: 50%;
+          background: #b91c1c;
+          cursor: pointer;
+          margin-top: -4px;
         }
       `}} />
     </div>
